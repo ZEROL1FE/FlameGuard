@@ -75,8 +75,7 @@ const deviceSchema = new mongoose.Schema({
   }
 });
 
-// Index for faster queries
-deviceSchema.index({ deviceId: 1 });
+// Index for faster queries (deviceId already indexed by unique: true)
 deviceSchema.index({ owner: 1 });
 deviceSchema.index({ isActive: 1 });
 

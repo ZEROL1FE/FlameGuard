@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 class ApiService {
-  static const String baseUrl = 'https://your-render-app.onrender.com/api';
+  static const String baseUrl = 'https://flameguard.onrender.com/api';
 
   // Headers for authenticated requests
   static Map<String, String> get _headers => {
