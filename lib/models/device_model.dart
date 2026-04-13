@@ -6,6 +6,22 @@ class SharedUser {
   final String initial;
 
   SharedUser({required this.id, required this.name, required this.initial});
+
+  factory SharedUser.fromJson(Map<String, dynamic> json) {
+    return SharedUser(
+      id: json['id'] as int,
+      name: json['name'] as String,
+      initial: json['initial'] as String,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'initial': initial,
+    };
+  }
 }
 
 class DeviceModel {
@@ -159,26 +175,6 @@ class DeviceModel {
       'endMinute': endMinute,
       'sharedUsers': sharedUsers.map((u) => u.toJson()).toList(),
     };
-  }
-}
-
-// ─── SHARED USER JSON METHODS ──────────────────────────────────────────────
-
-extension SharedUserJson on SharedUser {
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'initial': initial,
-    };
-  }
-
-  factory SharedUser.fromJson(Map<String, dynamic> json) {
-    return SharedUser(
-      id: json['id'] as int,
-      name: json['name'] as String,
-      initial: json['initial'] as String,
-    );
   }
 }
 

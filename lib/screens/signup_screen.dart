@@ -1,11 +1,13 @@
 // lib/screens/signup_screen.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
+import 'package:flutter_facebook_auth/flutter_facebook_auth.dart' as fb;
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../utils/scroll_physics.dart';
+import '../models/app_state.dart';
 
 class SignUpScreen extends StatefulWidget {
   final VoidCallback onSignUp;
@@ -78,6 +80,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Future<void> _authenticateWithGoogle() async {
     try {
       setState(() => _loading = true);
+      // Capture state before async operation
+      final state = context.read<AppState>();
       final GoogleSignIn googleSignIn = GoogleSignIn();
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       
@@ -85,7 +89,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
         final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
         
         // Use AppState to handle authentication
-        final state = context.read<AppState>();
         final success = await state.loginWithGoogle(googleAuth.idToken!);
         
         if (success) {
@@ -133,14 +136,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Future<void> _authenticateWithFacebook() async {
     try {
       setState(() => _loading = true);
-      final LoginResult result = await FacebookAuth.instance.login();
+      // Capture state before async operation
+      final state = context.read<AppState>();
+      final fb.LoginResult result = await fb.FacebookAuth.instance.login();
       
-      if (result.status == LoginStatus.success) {
-        final userData = await FacebookAuth.instance.getUserData();
+      if (result.status == fb.LoginStatus.success) {
+        final userData = await fb.FacebookAuth.instance.getUserData();
         
         // Use AppState to handle authentication
-        final state = context.read<AppState>();
-        final success = await state.loginWithFacebook(result.accessToken!.token);
+        final success = await state.loginWithFacebook((result.accessToken as dynamic).token);
         
         if (success && mounted) {
           // Auto-populate user data from Facebook account
@@ -183,6 +187,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Future<void> _authenticateWithApple() async {
     try {
       setState(() => _loading = true);
+      // Capture state before async operation
+      final state = context.read<AppState>();
       final credential = await SignInWithApple.getAppleIDCredential(
         scopes: [
           AppleIDAuthorizationScopes.email,
@@ -191,8 +197,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
       
       // Use AppState to handle authentication
-      final state = context.read<AppState>();
-      final success = await state.loginWithApple(credential.identityToken!, credential.userIdentifier);
+      final success = await state.loginWithApple(credential.identityToken!, credential.userIdentifier!);
       
       if (success && mounted) {
         // Auto-populate user data from Apple account

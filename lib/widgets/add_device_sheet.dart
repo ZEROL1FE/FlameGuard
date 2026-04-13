@@ -88,9 +88,9 @@ class _AddDeviceSheetState extends State<AddDeviceSheet> {
         zone: finalZone,
       );
       state.updateDeviceOnServer(updatedDevice).then((success) {
-        if (success) {
+        if (success && mounted) {
           Navigator.pop(context);
-        } else {
+        } else if (mounted) {
           setState(() => _err = 'Failed to update device');
         }
       });
@@ -102,9 +102,9 @@ class _AddDeviceSheetState extends State<AddDeviceSheet> {
         icon: finalType,
         wattage: w,
       ).then((success) {
-        if (success) {
+        if (success && mounted) {
           Navigator.pop(context);
-        } else {
+        } else if (mounted) {
           setState(() => _err = 'Failed to add device');
         }
       });

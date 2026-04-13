@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../services/esp32_service.dart';
-import '../config/app_config.dart';
 import 'device_model.dart';
 
 enum AppNotificationCategory { announcement, system, access }

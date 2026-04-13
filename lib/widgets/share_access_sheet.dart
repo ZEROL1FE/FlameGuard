@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:qr/qr.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
@@ -42,18 +41,22 @@ class _ShareAccessSheetState extends State<ShareAccessSheet> {
   }
 
   Future<void> _generateAndSaveQR(BuildContext context, AppColors c) async {
+    // Capture context before async operations
+    final capturedContext = context;
+    
     try {
       // Generate QR code data (invite link with selected device IDs)
       final inviteData = 'https://flameguard.app/invite?devices=${_selectedDeviceIds.join(',')}';
       
       // Create QR code
-      final qrCode = QrCode(10, QrErrorCorrectLevel.H);
-      qrCode.addData(inviteData);
-      qrCode.make();
+      final qrCode = QrCode.fromData(
+        data: inviteData,
+        errorCorrectLevel: QrErrorCorrectLevel.H,
+      );
       
       // Generate QR image (200x200 pixels)
       const int moduleSize = 4;
-      final size = (qrCode.moduleCount + 2) * moduleSize;
+      final size = ((qrCode as dynamic).size + 2) * moduleSize;
       
       final recorder = ui.PictureRecorder();
       final canvas = Canvas(recorder);
@@ -66,9 +69,9 @@ class _ShareAccessSheetState extends State<ShareAccessSheet> {
       
       // Draw QR code modules
       final qrPaint = Paint()..color = Colors.black;
-      for (int x = 0; x < qrCode.moduleCount; x++) {
-        for (int y = 0; y < qrCode.moduleCount; y++) {
-          if (qrCode.isDark(y, x)) {
+      for (int x = 0; x < (qrCode as dynamic).size; x++) {
+        for (int y = 0; y < (qrCode as dynamic).size; y++) {
+          if ((qrCode as dynamic).modules[y][x]) {
             canvas.drawRect(
               Rect.fromLTWH(
                 ((x + 1) * moduleSize).toDouble(),
@@ -90,34 +93,38 @@ class _ShareAccessSheetState extends State<ShareAccessSheet> {
       // Save to gallery
       final result = await ImageGallerySaver.saveImage(pngBytes, name: 'flameguard_invite_qr');
       
-      if (result != null && result['isSuccess']) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      if (capturedContext.mounted) {
+        if (result != null && result['isSuccess']) {
+          ScaffoldMessenger.of(capturedContext).showSnackBar(
+            SnackBar(
+              content: const Text('QR code saved to gallery!'),
+              backgroundColor: c.green,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(capturedContext).showSnackBar(
+            SnackBar(
+              content: const Text('Failed to save QR code'),
+              backgroundColor: c.red,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (capturedContext.mounted) {
+        ScaffoldMessenger.of(capturedContext).showSnackBar(
           SnackBar(
-            content: const Text('QR code saved to gallery!'),
-            backgroundColor: c.green,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Failed to save QR code'),
+            content: Text('Error saving QR code: $e'),
             backgroundColor: c.red,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
       }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error saving QR code: $e'),
-          backgroundColor: c.red,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
     }
   }
 

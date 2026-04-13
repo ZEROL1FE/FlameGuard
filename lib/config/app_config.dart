@@ -57,26 +57,18 @@ class Config {
 
 // Environment-specific configurations
 class DevConfig extends Config {
-  @override
   static const String apiBaseUrl = 'http://localhost:3000/api';
-  @override
   static const String mqttBroker = 'localhost';
-  @override
   static const bool isDevelopment = true;
 }
 
 class StagingConfig extends Config {
-  @override
   static const String apiBaseUrl = 'https://flameguard-staging.onrender.com/api';
-  @override
   static const String mqttBroker = 'mqtt-staging.yourdomain.com';
 }
 
 class ProdConfig extends Config {
-  @override
   static const String apiBaseUrl = 'https://flameguard-api.onrender.com/api';
-  @override
   static const String mqttBroker = 'mqtt.yourdomain.com';
-  @override
   static const bool enableMqttTls = true;
 }
