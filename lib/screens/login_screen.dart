@@ -63,40 +63,44 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _handleGoogleLogin() {
-    // Trigger Google OAuth authentication flow
     _authenticateWithGoogle();
   }
 
   Future<void> _authenticateWithGoogle() async {
     try {
       setState(() => _loading = true);
-      // Capture state before async operation
+
       final state = context.read<AppState>();
       final GoogleSignIn googleSignIn = GoogleSignIn();
-      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
-      
-      if (googleUser != null) {
-        final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-        
-        // Use AppState to handle authentication
-        final success = await state.loginWithGoogle(googleAuth.idToken!);
-        
-        if (success) {
-          setState(() {
-            _err = '';
-            _loading = false;
-          });
-          widget.onLogin();
-        } else {
-          setState(() {
-            _loading = false;
-            _err = 'Google login failed';
-          });
-        }
-      } else {
+
+      final GoogleSignInAccount? account = await googleSignIn.signIn();
+
+      if (account == null) {
         setState(() {
           _loading = false;
           _err = 'Google sign in cancelled';
+        });
+        return;
+      }
+
+      final GoogleSignInAuthentication auth = await account.authentication;
+
+      if (auth.idToken == null) {
+        throw Exception("Google ID token missing");
+      }
+
+      final success = await state.loginWithGoogle(auth.idToken!);
+
+      if (success) {
+        setState(() {
+          _loading = false;
+          _err = '';
+        });
+        widget.onLogin();
+      } else {
+        setState(() {
+          _loading = false;
+          _err = 'Google login failed';
         });
       }
     } catch (e) {
