@@ -46,6 +46,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
       setState(() => _err = 'Password must be at least 6 characters.');
       return;
     }
+    if (!_agreeToTerms) {
+      setState(() => _err = 'You must agree to Terms & Conditions.');
+      return;
+    }
     setState(() {
       _err = '';
       _loading = true;
@@ -82,7 +86,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
       setState(() => _loading = true);
       // Capture state before async operation
       final state = context.read<AppState>();
-      final GoogleSignIn googleSignIn = GoogleSignIn();
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        scopes: ['email', 'profile'],
+      );
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       
       if (googleUser != null) {
