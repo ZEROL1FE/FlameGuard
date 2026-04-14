@@ -71,8 +71,8 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _loading = true);
 
       final state = context.read<AppState>();
+
       final GoogleSignIn googleSignIn = GoogleSignIn(
-        clientId: "YOUR_WEB_CLIENT_ID",
         scopes: ['email', 'profile'],
       );
 
@@ -88,28 +88,25 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final GoogleSignInAuthentication auth = await account.authentication;
 
-      if (auth.idToken == null) {
-        throw Exception("Google ID token missing");
+      final idToken = auth.idToken;
+
+      if (idToken == null) {
+        throw Exception("Missing Google ID token");
       }
 
-      final success = await state.loginWithGoogle(auth.idToken!);
+      final success = await state.loginWithGoogle(idToken);
+
+      setState(() => _loading = false);
 
       if (success) {
-        setState(() {
-          _loading = false;
-          _err = '';
-        });
         widget.onLogin();
       } else {
-        setState(() {
-          _loading = false;
-          _err = 'Google login failed';
-        });
+        setState(() => _err = 'Google login failed');
       }
     } catch (e) {
       setState(() {
         _loading = false;
-        _err = 'Google sign in failed: ${e.toString()}';
+        _err = 'Google sign in failed: $e';
       });
     }
   }
