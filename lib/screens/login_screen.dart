@@ -71,7 +71,10 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _loading = true);
 
       final state = context.read<AppState>();
-      final GoogleSignIn googleSignIn = GoogleSignIn();
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        clientId: "YOUR_WEB_CLIENT_ID",
+        scopes: ['email', 'profile'],
+      );
 
       final GoogleSignInAccount? account = await googleSignIn.signIn();
 
