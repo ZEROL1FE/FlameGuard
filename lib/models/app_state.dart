@@ -1,9 +1,13 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../services/esp32_service.dart';
 import 'device_model.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'dart:developer';
+
 
 enum AppNotificationCategory { announcement, system, access }
 
@@ -273,9 +277,12 @@ class AppState extends ChangeNotifier {
 
   Future<bool> loginWithGoogle() async {
     try {
+      UserCredential userCredential;
+
       if (kIsWeb) {
         final provider = GoogleAuthProvider();
-        await FirebaseAuth.instance.signInWithPopup(provider);
+        userCredential =
+            await FirebaseAuth.instance.signInWithPopup(provider);
       } else {
         final googleUser = await GoogleSignIn().signIn();
         if (googleUser == null) return false;
@@ -287,15 +294,38 @@ class AppState extends ChangeNotifier {
           idToken: googleAuth.idToken,
         );
 
-        await FirebaseAuth.instance.signInWithCredential(credential);
+        userCredential =
+            await FirebaseAuth.instance.signInWithCredential(credential);
       }
+
+      final user = userCredential.user;
+
+      if (user == null) return false;
+
+      // 🔥 IMPORTANT: connect to your backend
+      final idToken = await user.getIdToken();
+
+      if (idToken == null) return false;
+
+      final response = await ApiService.googleLogin(idToken);
+
+      final token = response['token'];
+      final userData = response['user'];
+
+      await saveAuthState(
+        token,
+        userData['id'],
+        userData['email'],
+        userData['name'],
+      );
 
       return true;
     } catch (e) {
-      print("Google login error: $e");
+      log("Google login error: $e");
       return false;
     }
   }
+
   Future<bool> loginWithFacebook(String accessToken) async {
     try {
       final response = await ApiService.facebookLogin(accessToken);

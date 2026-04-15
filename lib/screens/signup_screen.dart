@@ -1,14 +1,12 @@
 // lib/screens/signup_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart' as fb;
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../utils/scroll_physics.dart';
 import '../models/app_state.dart';
-import 'package:flutter/foundation.dart';
 
 
 class SignUpScreen extends StatefulWidget {
@@ -78,73 +76,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
     });
   }
 
-  void _handleGoogleSignup() {
-    // Trigger Google OAuth authentication flow
-    _authenticateWithGoogle();
-  }
+  void _handleGoogleSignup() async {
+    setState(() => _loading = true);
 
-  Future<void> _authenticateWithGoogle() async {
-    try {
-      setState(() => _loading = true);
+    final success = await context.read<AppState>().loginWithGoogle();
 
-      final state = context.read<AppState>();
+    if (!mounted) return;
 
-      if (kIsWeb) {
-        // ⚠️ TEMP fallback (still works but deprecated)
-        final googleUser = await GoogleSignIn(
-          scopes: ['email', 'profile'],
-        ).signIn();
+    setState(() => _loading = false);
 
-        if (googleUser == null) {
-          setState(() {
-            _loading = false;
-            _err = 'Google sign in cancelled';
-          });
-          return;
-        }
-
-        final auth = await googleUser.authentication;
-
-        final success = await state.loginWithGoogle(auth.idToken!);
-
-        setState(() => _loading = false);
-
-        if (success) {
-          widget.onSignUp(); // or onLogin
-        } else {
-          setState(() => _err = 'Google login failed');
-        }
-      } else {
-        // ✅ Mobile (safe)
-        final googleUser = await GoogleSignIn(
-          scopes: ['email', 'profile'],
-        ).signIn();
-
-        if (googleUser == null) {
-          setState(() {
-            _loading = false;
-            _err = 'Cancelled';
-          });
-          return;
-        }
-
-        final auth = await googleUser.authentication;
-
-        final success = await state.loginWithGoogle(auth.idToken!);
-
-        setState(() => _loading = false);
-
-        if (success) {
-          widget.onSignUp(); // or onLogin
-        } else {
-          setState(() => _err = 'Failed');
-        }
-      }
-    } catch (e) {
-      setState(() {
-        _loading = false;
-        _err = 'Google error: $e';
-      });
+    if (success) {
+      widget.onSignUp();
+    } else {
+      setState(() => _err = 'Google signup failed');
     }
   }
 

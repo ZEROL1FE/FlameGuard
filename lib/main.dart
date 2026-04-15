@@ -1,6 +1,5 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'models/app_state.dart';
 import 'theme/app_theme.dart';
@@ -12,28 +11,30 @@ import 'screens/verify_screen.dart';
 import 'screens/main_shell.dart';
 import 'screens/forgot_password_screen.dart';
 import 'widgets/common_widgets.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+import 'dart:developer';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
-  // Load saved theme before app starts
-  final appState = AppState();
-  await appState.loadTheme();
-
-  runApp(
-    ChangeNotifierProvider.value(
-      value: appState,
-      child: const FlameGuardApp(),
-    ),
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  FirebaseAuth.instance.authStateChanges().listen((user) {
+    if (user != null) {
+      log("Logged in: ${user.email}");
+    } else {
+      log("Logged out");
+    }
+  });
+
+  runApp(const FlameGuardApp());
 }
 
-FirebaseAuth.instance.authStateChanges().listen((user) {
-  if (user != null) {
-    print("Logged in: ${user.email}");
-  }
-});
 
 class FlameGuardApp extends StatelessWidget {
   const FlameGuardApp({super.key});

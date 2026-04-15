@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart' as fb;
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../utils/scroll_physics.dart';
 import '../models/app_state.dart';
-import 'package:flutter/foundation.dart';
+
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onLogin;
@@ -69,8 +69,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void _handleGoogleLogin() async {
     setState(() => _loading = true);
 
-    final state = context.read<AppState>();
-    final success = await state.loginWithGoogle();
+    final success = await context.read<AppState>().loginWithGoogle();
 
     if (!mounted) return;
 
@@ -82,13 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _err = 'Google login failed');
     }
   }
-  final success = await state.loginWithGoogle();
 
-  if (success) {
-    widget.onLogin(); // or onSignUp
-  } else {
-    setState(() => _err = 'Google login failed');
-  }
 
   void _handleFacebookLogin() => _authenticateWithFacebook();
 
