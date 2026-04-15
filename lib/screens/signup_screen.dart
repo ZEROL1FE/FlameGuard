@@ -8,6 +8,8 @@ import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../utils/scroll_physics.dart';
 import '../models/app_state.dart';
+import 'package:flutter/foundation.dart';
+
 
 class SignUpScreen extends StatefulWidget {
   final VoidCallback onSignUp;
@@ -84,53 +86,65 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Future<void> _authenticateWithGoogle() async {
     try {
       setState(() => _loading = true);
-      // Capture state before async operation
+
       final state = context.read<AppState>();
-      final GoogleSignIn googleSignIn = GoogleSignIn(
-        scopes: ['email', 'profile'],
-      );
-      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
-      
-      if (googleUser != null) {
-        final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-        
-        // Use AppState to handle authentication
-        final success = await state.loginWithGoogle(googleAuth.idToken!);
-        
-        if (success) {
-          // Auto-populate user data from Google account
-          if (mounted) {
-            setState(() {
-              _name.text = googleUser.displayName ?? '';
-              _email.text = googleUser.email;
-              _err = '';
-              _loading = false;
-            });
-            widget.onSignUp();
-          }
-        } else {
-          if (mounted) {
-            setState(() {
-              _loading = false;
-              _err = 'Google sign up failed';
-            });
-          }
-        }
-      } else {
-        if (mounted) {
+
+      if (kIsWeb) {
+        // ⚠️ TEMP fallback (still works but deprecated)
+        final googleUser = await GoogleSignIn(
+          scopes: ['email', 'profile'],
+        ).signIn();
+
+        if (googleUser == null) {
           setState(() {
             _loading = false;
-            _err = 'Google sign up cancelled';
+            _err = 'Google sign in cancelled';
           });
+          return;
+        }
+
+        final auth = await googleUser.authentication;
+
+        final success = await state.loginWithGoogle(auth.idToken!);
+
+        setState(() => _loading = false);
+
+        if (success) {
+          widget.onSignUp(); // or onLogin
+        } else {
+          setState(() => _err = 'Google login failed');
+        }
+      } else {
+        // ✅ Mobile (safe)
+        final googleUser = await GoogleSignIn(
+          scopes: ['email', 'profile'],
+        ).signIn();
+
+        if (googleUser == null) {
+          setState(() {
+            _loading = false;
+            _err = 'Cancelled';
+          });
+          return;
+        }
+
+        final auth = await googleUser.authentication;
+
+        final success = await state.loginWithGoogle(auth.idToken!);
+
+        setState(() => _loading = false);
+
+        if (success) {
+          widget.onSignUp(); // or onLogin
+        } else {
+          setState(() => _err = 'Failed');
         }
       }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _err = 'Google sign up failed: ${e.toString()}';
-        });
-      }
+      setState(() {
+        _loading = false;
+        _err = 'Google error: $e';
+      });
     }
   }
 
@@ -150,7 +164,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
         final userData = await fb.FacebookAuth.instance.getUserData();
         
         // Use AppState to handle authentication
-        final success = await state.loginWithFacebook((result.accessToken as dynamic).token);
+        final token = result.accessToken?.tokenString;
+
+        if (token == null) {
+          setState(() {
+            _loading = false;
+            _err = 'Facebook token missing';
+          });
+          return;
+        }
+
+        final success = await state.loginWithFacebook(token);
         
         if (success && mounted) {
           // Auto-populate user data from Facebook account
@@ -402,9 +426,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
               const SizedBox(height: 18),
               if (_err.isNotEmpty) ErrorBanner(_err),
               PrimaryButton(
-                  label: 'Create Account',
-                  onPressed: _submit,
-                  loading: _loading),
+                label: 'Create Account',
+                onPressed: _loading ? null : _submit,
+                loading: _loading,
+              ),
               const SizedBox(height: 18),
               Row(children: [
                 Expanded(child: Divider(color: c.border)),

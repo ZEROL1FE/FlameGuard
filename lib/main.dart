@@ -29,6 +29,12 @@ void main() async {
   );
 }
 
+FirebaseAuth.instance.authStateChanges().listen((user) {
+  if (user != null) {
+    print("Logged in: ${user.email}");
+  }
+});
+
 class FlameGuardApp extends StatelessWidget {
   const FlameGuardApp({super.key});
 

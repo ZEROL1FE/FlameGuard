@@ -3,11 +3,11 @@ import 'package:provider/provider.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart' as fb;
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
-
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../utils/scroll_physics.dart';
 import '../models/app_state.dart';
+import 'package:flutter/foundation.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onLogin;
@@ -66,55 +66,28 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
-  void _handleGoogleLogin() => _authenticateWithGoogle();
+  void _handleGoogleLogin() async {
+    setState(() => _loading = true);
 
-  Future<void> _authenticateWithGoogle() async {
-    try {
-      setState(() => _loading = true);
+    final state = context.read<AppState>();
+    final success = await state.loginWithGoogle();
 
-      final state = context.read<AppState>();
+    if (!mounted) return;
 
-      final GoogleSignIn googleSignIn = GoogleSignIn(
-        scopes: ['email', 'profile'],
-      );
+    setState(() => _loading = false);
 
-      final GoogleSignInAccount? account = await googleSignIn.signIn();
-
-      if (!mounted) return;
-
-      if (account == null) {
-        setState(() {
-          _loading = false;
-          _err = 'Google sign in cancelled';
-        });
-        return;
-      }
-
-      final auth = await account.authentication;
-
-      if (auth.idToken == null) {
-        throw Exception("Missing Google ID token");
-      }
-
-      final success = await state.loginWithGoogle(auth.idToken!);
-
-      if (!mounted) return;
-
-      setState(() => _loading = false);
-
-      if (success) {
-        widget.onLogin();
-      } else {
-        setState(() => _err = 'Google login failed');
-      }
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _loading = false;
-        _err = 'Google sign in failed: $e';
-      });
+    if (success) {
+      widget.onLogin();
+    } else {
+      setState(() => _err = 'Google login failed');
     }
+  }
+  final success = await state.loginWithGoogle();
+
+  if (success) {
+    widget.onLogin(); // or onSignUp
+  } else {
+    setState(() => _err = 'Google login failed');
   }
 
   void _handleFacebookLogin() => _authenticateWithFacebook();
@@ -288,8 +261,8 @@ class _LoginScreenState extends State<LoginScreen> {
               if (_err.isNotEmpty) ErrorBanner(_err),
 
               PrimaryButton(
-                label: 'Sign In',
-                onPressed: _submit,
+                label: 'Create Account',
+                onPressed: _loading ? null : _submit,
                 loading: _loading,
               ),
 

@@ -271,25 +271,31 @@ class AppState extends ChangeNotifier {
 
   // ─── API AUTHENTICATION METHODS ──────────────────────────────────────────
 
-  Future<bool> loginWithGoogle(String idToken) async {
+  Future<bool> loginWithGoogle() async {
     try {
-      final response = await ApiService.googleLogin(idToken);
-      final token = response['token'] as String;
-      final user = response['user'] as Map<String, dynamic>;
+      if (kIsWeb) {
+        final provider = GoogleAuthProvider();
+        await FirebaseAuth.instance.signInWithPopup(provider);
+      } else {
+        final googleUser = await GoogleSignIn().signIn();
+        if (googleUser == null) return false;
 
-      await saveAuthState(
-        token,
-        user['id'] as String,
-        user['email'] as String,
-        user['name'] as String,
-      );
+        final googleAuth = await googleUser.authentication;
+
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+
+        await FirebaseAuth.instance.signInWithCredential(credential);
+      }
+
       return true;
     } catch (e) {
-      debugPrint('Google login failed: $e');
+      print("Google login error: $e");
       return false;
     }
   }
-
   Future<bool> loginWithFacebook(String accessToken) async {
     try {
       final response = await ApiService.facebookLogin(accessToken);

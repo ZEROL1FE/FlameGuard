@@ -15,7 +15,9 @@ dependencies:
   provider: ^6.1.1            # State management
   shared_preferences: ^2.2.2  # Theme persistence
   mobile_scanner: ^5.1.0      # Real QR Scanning
-  google_sign_in: ^6.1.5      # Google OAuth
+  firebase_core: ^2.30.0      # Firebase Core
+  firebase_auth: ^4.17.0      # Firebase Authentication
+  google_sign_in: ^6.2.1    # Google OAuth
   sign_in_with_apple: ^5.0.0  # Apple Sign In
   flutter_facebook_auth: ^7.0.0  # Facebook OAuth
   qr: ^3.0.1                  # QR code generation
