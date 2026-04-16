@@ -112,7 +112,14 @@ class _RouterState extends State<_Router> {
 
   @override
   Widget build(BuildContext context) {
+    final appState = context.watch<AppState>();
     final c = colorsOf(context);
+
+    if (appState.isAuthenticated) {
+      return MainShell(
+        onSignOut: () => _go(_Screen.login),
+      );
+    }
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),
@@ -146,14 +153,14 @@ class _RouterState extends State<_Router> {
 
       case _Screen.login:
         return LoginScreen(
-          onLogin: () => _go(_Screen.verify),
+          onLogin: () => _go(_Screen.main),
           onGoSignUp: () => _go(_Screen.signup),
           onForgotPassword: () => _go(_Screen.forgotPassword),
         );
 
       case _Screen.signup:
         return SignUpScreen(
-          onSignUp: () => _go(_Screen.verify),
+          onSignUp: () => _go(_Screen.main),
           onGoLogin: () => _go(_Screen.login),
         );
 

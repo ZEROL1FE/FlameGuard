@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart' as fb;
@@ -72,6 +73,14 @@ class _LoginScreenState extends State<LoginScreen> {
     final success = await context.read<AppState>().loginWithGoogle();
 
     if (!mounted) return;
+
+    if (kIsWeb) {
+      setState(() => _loading = false);
+      if (!success) {
+        setState(() => _err = 'Google login failed');
+      }
+      return;
+    }
 
     setState(() => _loading = false);
 
@@ -254,7 +263,7 @@ class _LoginScreenState extends State<LoginScreen> {
               if (_err.isNotEmpty) ErrorBanner(_err),
 
               PrimaryButton(
-                label: 'Create Account',
+                label: 'Log In',
                 onPressed: _loading ? null : _submit,
                 loading: _loading,
               ),

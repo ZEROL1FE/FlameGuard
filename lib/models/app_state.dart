@@ -256,6 +256,27 @@ class AppState extends ChangeNotifier {
       await connectToEsp32();
       await syncDevicesFromServer();
       _startWebSensorPolling();
+    } else {
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      if (firebaseUser != null) {
+        try {
+          final idToken = await firebaseUser.getIdToken();
+          if (idToken != null) {
+            final response = await ApiService.firebaseLogin(idToken);
+            final token = response['token'] as String;
+            final user = response['user'] as Map<String, dynamic>;
+            await saveAuthState(
+              token,
+              user['id'] as String,
+              user['email'] as String,
+              user['name'] as String,
+            );
+            return;
+          }
+        } catch (e) {
+          debugPrint('Failed to restore Firebase session: $e');
+        }
+      }
     }
 
     notifyListeners();
@@ -293,7 +314,9 @@ class AppState extends ChangeNotifier {
     _userName = null;
     _isAuthenticated = false;
 
+    await FirebaseAuth.instance.signOut();
     _esp32Service.disconnect();
+    _webSensorSyncTimer?.cancel();
     notifyListeners();
   }
 
@@ -305,8 +328,8 @@ class AppState extends ChangeNotifier {
 
       if (kIsWeb) {
         final provider = GoogleAuthProvider();
-        userCredential =
-            await FirebaseAuth.instance.signInWithPopup(provider);
+        await FirebaseAuth.instance.signInWithRedirect(provider);
+        return true;
       } else {
         final googleUser = await GoogleSignIn().signIn();
         if (googleUser == null) return false;

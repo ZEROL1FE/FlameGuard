@@ -1,5 +1,6 @@
 // lib/screens/signup_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart' as fb;
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
@@ -82,6 +83,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
     final success = await context.read<AppState>().loginWithGoogle();
 
     if (!mounted) return;
+
+    if (kIsWeb) {
+      setState(() => _loading = false);
+      if (!success) {
+        setState(() => _err = 'Google signup failed');
+      }
+      return;
+    }
 
     setState(() => _loading = false);
 
@@ -370,7 +379,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               const SizedBox(height: 18),
               if (_err.isNotEmpty) ErrorBanner(_err),
               PrimaryButton(
-                label: 'Create Account',
+                label: 'Sign Up',
                 onPressed: _loading ? null : _submit,
                 loading: _loading,
               ),

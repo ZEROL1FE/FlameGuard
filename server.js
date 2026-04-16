@@ -29,6 +29,14 @@ mongoose.connect(process.env.MONGODB_URI)
 app.use('/api/auth', authRoutes);
 app.use('/api/devices', deviceRoutes);
 
+app.get('/', (req, res) => {
+  res.json({
+    service: 'FlameGuard API',
+    status: 'OK',
+    health: '/api/health',
+  });
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
