@@ -61,6 +61,8 @@ class AppState extends ChangeNotifier {
     ),
   ];
   Timer? _timer;
+  Timer? _webSensorSyncTimer;
+  bool _webSyncInFlight = false;
 
   // ─── SERVICE INSTANCES ───────────────────────────────────────────────────
   final Esp32Service _esp32Service = Esp32Service();
@@ -164,6 +166,25 @@ class AppState extends ChangeNotifier {
     _timer = Timer.periodic(const Duration(seconds: 30), (_) => _checkSchedules());
   }
 
+  void _startWebSensorPolling() {
+    _webSensorSyncTimer?.cancel();
+    if (!kIsWeb) return;
+    if (!_isAuthenticated) return;
+
+    _webSensorSyncTimer = Timer.periodic(
+      const Duration(seconds: 20),
+      (_) async {
+        if (_webSyncInFlight) return;
+        _webSyncInFlight = true;
+        try {
+          await syncDevicesFromServer();
+        } finally {
+          _webSyncInFlight = false;
+        }
+      },
+    );
+  }
+
   void _checkSchedules() {
     final now = DateTime.now();
     final currentMinutes = now.hour * 60 + now.minute;
@@ -208,6 +229,7 @@ class AppState extends ChangeNotifier {
   @override
   void dispose() {
     _timer?.cancel();
+    _webSensorSyncTimer?.cancel();
     _deviceDataSubscription?.cancel();
     _connectionStatusSubscription?.cancel();
     _esp32Service.dispose();
@@ -233,6 +255,7 @@ class AppState extends ChangeNotifier {
     if (_isAuthenticated) {
       await connectToEsp32();
       await syncDevicesFromServer();
+      _startWebSensorPolling();
     }
 
     notifyListeners();
@@ -253,6 +276,7 @@ class AppState extends ChangeNotifier {
 
     await connectToEsp32();
     await syncDevicesFromServer();
+    _startWebSensorPolling();
     notifyListeners();
   }
 
@@ -411,6 +435,10 @@ class AppState extends ChangeNotifier {
   // ─── ESP32 CONNECTION METHODS ────────────────────────────────────────────
 
   Future<bool> connectToEsp32() async {
+    if (kIsWeb) {
+      // Avoid dart:io TLS primitives on Flutter Web.
+      return false;
+    }
     if (!_isAuthenticated) return false;
     return await _esp32Service.connect();
   }

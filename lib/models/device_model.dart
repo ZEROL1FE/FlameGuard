@@ -161,6 +161,24 @@ class DeviceModel {
     final String resolvedDeviceId =
         (json['deviceId'] ?? rawId.toString()).toString();
 
+    final temperatureValue =
+        (json['temperature'] as num? ?? sensorData['temperature'] as num? ?? 0)
+            .toDouble();
+
+    // If backend doesn't send explicit `risk` / `riskScore`, derive them from temperature.
+    final String derivedRisk;
+    final int derivedRiskScore;
+    if (temperatureValue >= 65) {
+      derivedRisk = 'High';
+      derivedRiskScore = 100;
+    } else if (temperatureValue >= 45) {
+      derivedRisk = 'Medium';
+      derivedRiskScore = 70;
+    } else {
+      derivedRisk = 'Low';
+      derivedRiskScore = 20;
+    }
+
     return DeviceModel(
       id: parsedId,
       deviceId: resolvedDeviceId,
@@ -170,10 +188,10 @@ class DeviceModel {
       wattage: (json['wattage'] as num?)?.toInt() ?? 0,
       voltage: (json['voltage'] as num? ?? sensorData['voltage'] as num? ?? 0).toDouble(),
       current: (json['current'] as num? ?? sensorData['current'] as num? ?? 0).toDouble(),
-      temperature: (json['temperature'] as num? ?? sensorData['temperature'] as num? ?? 0).toDouble(),
+      temperature: temperatureValue,
       active: (json['active'] as bool?) ?? (json['isActive'] as bool?) ?? false,
-      risk: (json['risk'] ?? 'Low') as String,
-      riskScore: (json['riskScore'] as num?)?.toInt() ?? 0,
+      risk: (json['risk'] as String?) ?? derivedRisk,
+      riskScore: (json['riskScore'] as num?)?.toInt() ?? derivedRiskScore,
       runtime: (json['runtime'] ?? '0h 00m') as String,
       autoCutoff: (json['autoCutoff'] as bool?) ?? (settings['autoShutdown'] as bool?) ?? false,
       threshold: (json['threshold'] ?? 'High') as String,

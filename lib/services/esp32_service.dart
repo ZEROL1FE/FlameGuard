@@ -21,6 +21,13 @@ class Esp32Service {
 
   Future<bool> connect() async {
     try {
+      if (kIsWeb) {
+        // mqtt_client uses dart:io TLS primitives which are not available on Flutter Web.
+        debugPrint('MQTT is not supported on web in this configuration.');
+        _connectionStatusController.add('web_unavailable');
+        return false;
+      }
+
       _client = MqttServerClient(mqttBroker, clientId);
       _client!.port = mqttPort;
       _client!.logging(on: kDebugMode);
