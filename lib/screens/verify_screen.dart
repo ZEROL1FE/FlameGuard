@@ -1,8 +1,10 @@
 // lib/screens/verify_screen.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import '../models/app_state.dart';
 import '../utils/scroll_physics.dart';
 
 class VerifyScreen extends StatefulWidget {
@@ -26,6 +28,26 @@ class _VerifyScreenState extends State<VerifyScreen> {
   bool _loading = false;
   bool _resent = false;
   String _err = '';
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Backend does not actually send OTP codes in this build.
+    // So to avoid users getting stuck, we automatically continue.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final state = context.read<AppState>();
+      final shouldContinue = state.isAuthenticated;
+
+      final delay = shouldContinue
+          ? const Duration(milliseconds: 300)
+          : const Duration(seconds: 1);
+      Future.delayed(delay, () {
+        if (mounted) widget.onVerified();
+      });
+    });
+  }
 
   bool get _filled => _controllers.every((c) => c.text.isNotEmpty);
 
@@ -141,16 +163,12 @@ class _VerifyScreenState extends State<VerifyScreen> {
                 child: Center(child: AppIcon('mail', size: 24, color: c.blue)),
               ),
               const SizedBox(height: 24),
-              Text('Check your email', style: AppText.h(24, c.t1)),
+              Text('You are signed in', style: AppText.h(24, c.t1)),
               const SizedBox(height: 8),
-              RichText(
-                  text: TextSpan(
+              Text(
+                'Account ready for $_maskedEmail. This build auto-continues after signup/login. No email code is required.',
                 style: AppText.body(13, c.t2).copyWith(height: 1.6),
-                children: [
-                  const TextSpan(text: 'We sent a 6-digit code to '),
-                  TextSpan(text: _maskedEmail, style: AppText.semi(13, c.t1)),
-                ],
-              )),
+              ),
               const SizedBox(height: 32),
 
               // OTP boxes

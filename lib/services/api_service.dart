@@ -207,10 +207,25 @@ class ApiService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return jsonDecode(response.body);
     } else {
-      final error = jsonDecode(response.body);
+      dynamic error;
+      try {
+        error = jsonDecode(response.body);
+      } catch (_) {
+        error = { 'raw': response.body };
+      }
+
+      final message = (() {
+        if (error is Map<String, dynamic>) {
+          final m =
+              error['message'] ?? error['error'] ?? error['detail'] ?? error['details'];
+          if (m is String) return m;
+          if (m != null) return m.toString();
+        }
+        return 'API request failed';
+      })();
       throw ApiException(
         statusCode: response.statusCode,
-        message: error['message'] ?? error['error'] ?? 'API request failed',
+        message: message,
         details: error,
       );
     }

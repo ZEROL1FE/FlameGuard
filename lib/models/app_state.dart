@@ -336,9 +336,13 @@ class AppState extends ChangeNotifier {
 
         final googleAuth = await googleUser.authentication;
 
+        final accessToken = googleAuth.accessToken;
+        final idToken = googleAuth.idToken;
+        if (accessToken == null || idToken == null) return false;
+
         final credential = GoogleAuthProvider.credential(
-          accessToken: googleAuth.accessToken,
-          idToken: googleAuth.idToken,
+          accessToken: accessToken,
+          idToken: idToken,
         );
 
         userCredential =

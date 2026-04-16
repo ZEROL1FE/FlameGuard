@@ -180,7 +180,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
       
       // Use AppState to handle authentication
-      final success = await state.loginWithApple(credential.identityToken!, credential.userIdentifier!);
+      final idToken = credential.identityToken;
+      final userIdentifier = credential.userIdentifier;
+
+      if (idToken == null || userIdentifier == null) {
+        setState(() {
+          _loading = false;
+          _err = 'Apple token missing';
+        });
+        return;
+      }
+
+      final success = await state.loginWithApple(idToken, userIdentifier);
       
       if (success && mounted) {
         // Auto-populate user data from Apple account
