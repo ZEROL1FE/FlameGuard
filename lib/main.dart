@@ -32,7 +32,12 @@ void main() async {
     }
   });
 
-  runApp(const FlameGuardApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => AppState(),
+      child: const FlameGuardApp(),
+    ),
+  );
 }
 
 

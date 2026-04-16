@@ -1737,7 +1737,14 @@ class ActiveSharedDevicesSubScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(u.name, style: AppText.med(13, c.t1)),
-                Text('Standard Access', style: AppText.body(10, c.t3)),
+                Text(
+                  u.permission == 'manage'
+                      ? 'Manage access'
+                      : u.permission == 'control'
+                          ? 'Control devices'
+                          : 'View only',
+                  style: AppText.body(10, c.t3),
+                ),
               ],
             ),
           ),
@@ -1753,10 +1760,22 @@ class ActiveSharedDevicesSubScreen extends StatelessWidget {
                    actions: [
                      TextButton(onPressed: () => Navigator.pop(context), 
                         child: Text('Cancel', style: AppText.med(14, c.t3))),
-                     TextButton(onPressed: () {
-                        state.deleteSharedUser(d.id, u.id);
-                        Navigator.pop(context);
-                     }, child: Text('Remove', style: AppText.semi(14, c.red))),
+                     TextButton(
+                       onPressed: () async {
+                         final ok = await state.deleteSharedUser(d.id, u);
+                         if (context.mounted) {
+                           Navigator.pop(context);
+                           ScaffoldMessenger.of(context).showSnackBar(
+                             SnackBar(
+                               content: Text(ok
+                                   ? 'Access removed'
+                                   : 'Failed to remove access'),
+                             ),
+                           );
+                         }
+                       },
+                       child: Text('Remove', style: AppText.semi(14, c.red)),
+                     ),
                    ],
                  ),
                );

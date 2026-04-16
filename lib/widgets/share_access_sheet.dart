@@ -16,6 +16,9 @@ class ShareAccessSheet extends StatefulWidget {
 
 class _ShareAccessSheetState extends State<ShareAccessSheet> {
   late List<int> _selectedDeviceIds;
+  final TextEditingController _emailCtrl = TextEditingController();
+  String _sharePermission = 'view';
+  bool _sharing = false;
 
   @override
   void initState() {
@@ -38,6 +41,52 @@ class _ShareAccessSheetState extends State<ShareAccessSheet> {
     // Save QR code to device gallery/downloads
     final c = colorsOf(context);
     _generateAndSaveQR(context, c);
+  }
+
+  Future<void> _shareSelectedDevices(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final email = _emailCtrl.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Enter a valid email to share access')),
+      );
+      return;
+    }
+    if (_selectedDeviceIds.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Select at least one device')),
+      );
+      return;
+    }
+
+    setState(() => _sharing = true);
+    final state = context.read<AppState>();
+    int successCount = 0;
+
+    for (final id in _selectedDeviceIds) {
+      final ok = await state.shareDeviceAccess(
+        deviceId: id,
+        email: email,
+        permission: _sharePermission,
+      );
+      if (ok) {
+        successCount++;
+        await state.loadSharedAccessForDevice(id);
+      }
+    }
+
+    if (!mounted) return;
+    setState(() => _sharing = false);
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          successCount == _selectedDeviceIds.length
+              ? 'Access shared successfully'
+              : 'Shared $successCount/${_selectedDeviceIds.length} devices',
+        ),
+      ),
+    );
   }
 
   Future<void> _generateAndSaveQR(BuildContext context, AppColors c) async {
@@ -249,6 +298,70 @@ class _ShareAccessSheetState extends State<ShareAccessSheet> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _emailCtrl,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: InputDecoration(
+                    hintText: 'Share with email',
+                    filled: true,
+                    fillColor: c.bg,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: c.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: c.border),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    DropdownButton<String>(
+                      value: _sharePermission,
+                      onChanged: (v) {
+                        if (v != null) {
+                          setState(() => _sharePermission = v);
+                        }
+                      },
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'view',
+                          child: Text('View only'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'control',
+                          child: Text('Can control'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'manage',
+                          child: Text('Can manage access'),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    SizedBox(
+                      width: 110,
+                      child: TextButton(
+                        onPressed:
+                            _sharing ? null : () => _shareSelectedDevices(context),
+                        style: TextButton.styleFrom(
+                          backgroundColor: c.blue,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: Text(
+                          _sharing ? 'Sharing...' : 'Share',
+                          style: AppText.semi(12, Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 24),
 
                 // Manage Access Label (Fixed)
@@ -348,5 +461,11 @@ class _ShareAccessSheetState extends State<ShareAccessSheet> {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    super.dispose();
   }
 }

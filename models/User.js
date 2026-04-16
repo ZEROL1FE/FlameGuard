@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
+  firebaseUid: {
+    type: String,
+    sparse: true,
+    trim: true
+  },
   email: {
     type: String,
     required: true,
@@ -20,11 +25,15 @@ const userSchema = new mongoose.Schema({
   provider: {
     type: String,
     enum: ['google', 'facebook', 'apple', 'email'],
-    required: true
+    default: 'email'
   },
   providerId: {
     type: String,
-    required: true
+    default: ''
+  },
+  passwordHash: {
+    type: String,
+    default: ''
   },
   devices: [{
     type: mongoose.Schema.Types.ObjectId,

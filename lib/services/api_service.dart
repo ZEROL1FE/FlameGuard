@@ -18,14 +18,18 @@ class ApiService {
 
   // ─── AUTHENTICATION ENDPOINTS ──────────────────────────────────────────────
 
-  // Google OAuth login
-  static Future<Map<String, dynamic>> googleLogin(String idToken) async {
+  static Future<Map<String, dynamic>> firebaseLogin(String idToken) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/auth/google-login'),
+      Uri.parse('$baseUrl/auth/firebase-login'),
       headers: _headers,
       body: jsonEncode({'idToken': idToken}),
     );
     return _handleResponse(response);
+  }
+
+  // Google OAuth login
+  static Future<Map<String, dynamic>> googleLogin(String idToken) async {
+    return firebaseLogin(idToken);
   }
 
   // Facebook OAuth login
@@ -94,7 +98,8 @@ class ApiService {
       headers: authHeaders(token),
       body: jsonEncode(deviceData),
     );
-    return _handleResponse(response);
+    final data = _handleResponse(response);
+    return Map<String, dynamic>.from(data['device'] ?? data);
   }
 
   // Update device
@@ -104,7 +109,8 @@ class ApiService {
       headers: authHeaders(token),
       body: jsonEncode(updates),
     );
-    return _handleResponse(response);
+    final data = _handleResponse(response);
+    return Map<String, dynamic>.from(data['device'] ?? data);
   }
 
   // Delete device
@@ -143,13 +149,18 @@ class ApiService {
   // ─── ACCESS SHARING ENDPOINTS ─────────────────────────────────────────────
 
   // Share device access
-  static Future<Map<String, dynamic>> shareDeviceAccess(String token, String deviceId, String email, List<String> permissions) async {
+  static Future<Map<String, dynamic>> shareDeviceAccess(
+    String token,
+    String deviceId,
+    String email, {
+    String permission = 'view',
+  }) async {
     final response = await http.post(
       Uri.parse('$baseUrl/devices/$deviceId/share'),
       headers: authHeaders(token),
       body: jsonEncode({
         'email': email,
-        'permissions': permissions,
+        'permission': permission,
       }),
     );
     return _handleResponse(response);
@@ -165,6 +176,30 @@ class ApiService {
     return data['shared'] ?? [];
   }
 
+  static Future<void> removeSharedAccess(
+      String token, String deviceId, String userId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/devices/$deviceId/share/$userId'),
+      headers: authHeaders(token),
+    );
+    _handleResponse(response);
+  }
+
+  static Future<List<dynamic>> getDeviceHistory(
+    String token,
+    String deviceId, {
+    int limit = 100,
+    int sinceHours = 24,
+  }) async {
+    final response = await http.get(
+      Uri.parse(
+          '$baseUrl/devices/$deviceId/history?limit=$limit&sinceHours=$sinceHours'),
+      headers: authHeaders(token),
+    );
+    final data = _handleResponse(response);
+    return data['history'] ?? [];
+  }
+
   // ─── UTILITY METHODS ──────────────────────────────────────────────────────
 
   // Handle HTTP response
@@ -175,7 +210,7 @@ class ApiService {
       final error = jsonDecode(response.body);
       throw ApiException(
         statusCode: response.statusCode,
-        message: error['message'] ?? 'API request failed',
+        message: error['message'] ?? error['error'] ?? 'API request failed',
         details: error,
       );
     }

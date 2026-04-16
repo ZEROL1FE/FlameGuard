@@ -13,7 +13,7 @@ const deviceSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['flame_sensor', 'smoke_sensor', 'temperature_sensor', 'multi_sensor'],
+    trim: true,
     default: 'multi_sensor'
   },
   owner: {
@@ -35,6 +35,14 @@ const deviceSchema = new mongoose.Schema({
   },
   sensorData: {
     temperature: {
+      type: Number,
+      default: null
+    },
+    voltage: {
+      type: Number,
+      default: null
+    },
+    current: {
       type: Number,
       default: null
     },
@@ -69,6 +77,22 @@ const deviceSchema = new mongoose.Schema({
       default: false
     }
   },
+  sharedAccess: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    permission: {
+      type: String,
+      enum: ['view', 'control', 'manage'],
+      default: 'view'
+    },
+    sharedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   createdAt: {
     type: Date,
     default: Date.now

@@ -307,7 +307,7 @@ class AppState extends ChangeNotifier {
 
       if (idToken == null) return false;
 
-      final response = await ApiService.googleLogin(idToken);
+      final response = await ApiService.firebaseLogin(idToken);
 
       final token = response['token'];
       final userData = response['user'];
@@ -328,7 +328,13 @@ class AppState extends ChangeNotifier {
 
   Future<bool> loginWithFacebook(String accessToken) async {
     try {
-      final response = await ApiService.facebookLogin(accessToken);
+      final credential = FacebookAuthProvider.credential(accessToken);
+      final userCredential =
+          await FirebaseAuth.instance.signInWithCredential(credential);
+      final idToken = await userCredential.user?.getIdToken();
+      if (idToken == null) return false;
+
+      final response = await ApiService.firebaseLogin(idToken);
       final token = response['token'] as String;
       final user = response['user'] as Map<String, dynamic>;
 
@@ -436,12 +442,15 @@ class AppState extends ChangeNotifier {
     if (!_isAuthenticated || _authToken == null) return false;
 
     try {
+      final generatedDeviceId =
+          'fg-${DateTime.now().millisecondsSinceEpoch}-${name.hashCode.abs()}';
       final deviceData = {
+        'deviceId': generatedDeviceId,
         'name': name,
-        'zone': zone,
+        'location': zone,
         'icon': icon,
         'wattage': wattage,
-        'type': 'appliance', // Default type
+        'type': icon,
       };
 
       final response = await ApiService.addDevice(_authToken!, deviceData);
@@ -461,7 +470,7 @@ class AppState extends ChangeNotifier {
 
     try {
       final updates = device.toJson();
-      await ApiService.updateDevice(_authToken!, device.id.toString(), updates);
+      await ApiService.updateDevice(_authToken!, device.deviceId, updates);
 
       final index = _devices.indexWhere((d) => d.id == device.id);
       if (index != -1) {
@@ -479,13 +488,107 @@ class AppState extends ChangeNotifier {
     if (!_isAuthenticated || _authToken == null) return false;
 
     try {
-      await ApiService.deleteDevice(_authToken!, deviceId.toString());
+      final device = getDevice(deviceId);
+      if (device == null) return false;
+      await ApiService.deleteDevice(_authToken!, device.deviceId);
       _devices.removeWhere((d) => d.id == deviceId);
       notifyListeners();
       return true;
     } catch (e) {
       debugPrint('Failed to delete device: $e');
       return false;
+    }
+  }
+
+  Future<bool> shareDeviceAccess({
+    required int deviceId,
+    required String email,
+    required String permission,
+  }) async {
+    if (!_isAuthenticated || _authToken == null) return false;
+
+    final device = getDevice(deviceId);
+    if (device == null) return false;
+
+    try {
+      final shared = await ApiService.shareDeviceAccess(
+        _authToken!,
+        device.deviceId,
+        email,
+        permission: permission,
+      );
+
+      final sharedUser = SharedUser.fromJson(
+        Map<String, dynamic>.from(shared['shared'] ?? {}),
+      );
+
+      final index = _devices.indexWhere((d) => d.id == deviceId);
+      if (index != -1) {
+        final updated = List<SharedUser>.from(_devices[index].sharedUsers);
+        final existingIndex =
+            updated.indexWhere((u) => u.backendId == sharedUser.backendId);
+        if (existingIndex != -1) {
+          updated[existingIndex] = sharedUser;
+        } else {
+          updated.add(sharedUser);
+        }
+        _devices[index] = _devices[index].copyWith(sharedUsers: updated);
+        notifyListeners();
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint('Failed to share device access: $e');
+      return false;
+    }
+  }
+
+  Future<void> loadSharedAccessForDevice(int deviceId) async {
+    if (!_isAuthenticated || _authToken == null) return;
+    final device = getDevice(deviceId);
+    if (device == null) return;
+
+    try {
+      final shared = await ApiService.getSharedAccess(
+        _authToken!,
+        device.deviceId,
+      );
+      final mapped = shared
+          .map((entry) =>
+              SharedUser.fromJson(Map<String, dynamic>.from(entry)))
+          .toList();
+      final index = _devices.indexWhere((d) => d.id == deviceId);
+      if (index != -1) {
+        _devices[index] = _devices[index].copyWith(sharedUsers: mapped);
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Failed to load shared access: $e');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getDeviceHistory(
+    int deviceId, {
+    int limit = 100,
+    int sinceHours = 24,
+  }) async {
+    if (!_isAuthenticated || _authToken == null) return [];
+    final device = getDevice(deviceId);
+    if (device == null) return [];
+
+    try {
+      final rows = await ApiService.getDeviceHistory(
+        _authToken!,
+        device.deviceId,
+        limit: limit,
+        sinceHours: sinceHours,
+      );
+      return rows
+          .map((row) => Map<String, dynamic>.from(row as Map))
+          .toList();
+    } catch (e) {
+      debugPrint('Failed to fetch history: $e');
+      return [];
     }
   }
 
@@ -605,6 +708,7 @@ class AppState extends ChangeNotifier {
       ..._devices,
       DeviceModel(
         id: _nextId++,
+        deviceId: 'local-${DateTime.now().millisecondsSinceEpoch}',
         name: name, zone: zone, icon: icon,
         wattage: wattage, voltage: 230,
         current: wattage / 230,
@@ -669,13 +773,30 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void deleteSharedUser(int deviceId, int userId) {
-    final i = _devices.indexWhere((d) => d.id == deviceId);
-    if (i != -1) {
-      final shared = List<SharedUser>.from(_devices[i].sharedUsers);
-      shared.removeWhere((u) => u.id == userId);
-      _devices[i] = _devices[i].copyWith(sharedUsers: shared);
-      notifyListeners();
+  Future<bool> deleteSharedUser(int deviceId, SharedUser user) async {
+    if (!_isAuthenticated || _authToken == null) return false;
+    final device = getDevice(deviceId);
+    if (device == null || user.backendId.isEmpty) return false;
+
+    try {
+      await ApiService.removeSharedAccess(
+        _authToken!,
+        device.deviceId,
+        user.backendId,
+      );
+
+      final i = _devices.indexWhere((d) => d.id == deviceId);
+      if (i != -1) {
+        final shared = List<SharedUser>.from(_devices[i].sharedUsers);
+        shared.removeWhere(
+            (u) => u.backendId == user.backendId || u.id == user.id);
+        _devices[i] = _devices[i].copyWith(sharedUsers: shared);
+        notifyListeners();
+      }
+      return true;
+    } catch (e) {
+      debugPrint('Failed to delete shared user: $e');
+      return false;
     }
   }
 
