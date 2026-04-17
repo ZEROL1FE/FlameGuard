@@ -4,24 +4,31 @@ For more details, see: https://github.com/flutter/flutter/issues/156910`)},t=()=
 
 let eventListener;
 eventListener = (message) => {
+
     const pendingMessages = [];
     const data = message.data;
+    
     data["instantiateWasm"] = (info,receiveInstance) => {
+
         const instance = new WebAssembly.Instance(data["wasm"], info);
         return receiveInstance(instance, data["wasm"])
+
     };
     import(data.js).then(async (skwasm) => {
         await skwasm.default(data);
 
         removeEventListener("message", eventListener);
         for (const message of pendingMessages) {
+
             dispatchEvent(message);
+
         }
     });
     removeEventListener("message", eventListener);
     eventListener = (message) => {
 
         pendingMessages.push(message);
+
     };
 
     addEventListener("message", eventListener);

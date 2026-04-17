@@ -3,7 +3,7 @@ class Config {
   // ─── API CONFIGURATION ────────────────────────────────────────────────────
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://your-render-app.onrender.com/api',
+    defaultValue: 'https://flameguard.onrender.com',
   );
 
   // API timeout settings
@@ -57,7 +57,7 @@ class Config {
 
 // Environment-specific configurations
 class DevConfig extends Config {
-  static const String apiBaseUrl = 'http://localhost:3000/api';
+  static const String apiBaseUrl = '  ';
   static const String mqttBroker = 'localhost';
   static const bool isDevelopment = true;
 }
