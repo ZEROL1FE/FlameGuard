@@ -9,21 +9,21 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  google_fonts: ^6.1.0        # Outfit font
-  fl_chart: ^0.68.0           # Analytics charts
-  smooth_page_indicator: ^1.1.0  # Onboarding dots
-  provider: ^6.1.1            # State management
-  shared_preferences: ^2.2.2  # Theme persistence
-  mobile_scanner: ^5.1.0      # Real QR Scanning
-  firebase_core: ^2.30.0      # Firebase Core
-  firebase_auth: ^4.17.0      # Firebase Authentication
-  google_sign_in: ^6.2.1    # Google OAuth
-  sign_in_with_apple: ^5.0.0  # Apple Sign In
-  flutter_facebook_auth: ^7.0.0  # Facebook OAuth
-  qr: ^3.0.1                  # QR code generation
-  image_gallery_saver: ^2.0.3 # Save images to gallery
-  http: ^1.2.1                # HTTP requests
-  mqtt_client: ^10.0.0        # MQTT for ESP32 communication
+  google_fonts: ^6.1.0                 # Outfit font
+  fl_chart: ^0.68.0                    # Analytics charts
+  smooth_page_indicator: ^1.1.0        # Onboarding dots
+  provider: ^6.1.1                     # State management
+  shared_preferences: ^2.2.2           # Theme persistence
+  mobile_scanner: ^5.1.0               # Real QR Scanning
+  firebase_core: ^4.7.0                # Firebase Core
+  firebase_auth: ^6.4.0                # Firebase Authentication
+  google_sign_in: ^6.2.1               # Google OAuth
+  sign_in_with_apple: ^5.0.0           # Apple Sign In
+  flutter_facebook_auth: ^7.0.0        # Facebook OAuth
+  qr: ^3.0.1                           # QR code generation
+  flutter_image_gallery_saver: ^2.0.0  # Save images to gallery
+  http: ^1.2.1                         # HTTP requests
+  mqtt_client: ^10.0.0                 # MQTT for ESP32 communication
 
 dev_dependencies:
   flutter_test:

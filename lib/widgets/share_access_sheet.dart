@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:ui' as ui;
 import 'package:qr/qr.dart';
-import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:flutter_image_gallery_saver/flutter_image_gallery_saver.dart';
 import '../models/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
@@ -140,7 +140,10 @@ class _ShareAccessSheetState extends State<ShareAccessSheet> {
       final pngBytes = byteData!.buffer.asUint8List();
       
       // Save to gallery
-      final result = await ImageGallerySaver.saveImage(pngBytes, name: 'flameguard_invite_qr');
+      final result = await FlutterImageGallerySaver.saveImage(
+        pngBytes,
+        name: 'flameguard_invite_qr',
+      );
       
       if (capturedContext.mounted) {
         if (result != null && result['isSuccess']) {
