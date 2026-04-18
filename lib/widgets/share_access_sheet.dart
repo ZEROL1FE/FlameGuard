@@ -140,31 +140,27 @@ class _ShareAccessSheetState extends State<ShareAccessSheet> {
       final pngBytes = byteData!.buffer.asUint8List();
       
       // Save to gallery
-      final result = await FlutterImageGallerySaver.saveImage(
-        pngBytes,
-        name: 'flameguard_invite_qr',
-      );
-      
-      if (capturedContext.mounted) {
-        if (result != null && result['isSuccess']) {
-          ScaffoldMessenger.of(capturedContext).showSnackBar(
-            SnackBar(
-              content: const Text('QR code saved to gallery!'),
-              backgroundColor: c.green,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(capturedContext).showSnackBar(
-            SnackBar(
-              content: const Text('Failed to save QR code'),
-              backgroundColor: c.red,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-          );
-        }
+      try {
+        final saver = ImageGallerySaver();
+        await saver.saveImage(pngBytes);
+
+        if (!capturedContext.mounted) return;
+
+        ScaffoldMessenger.of(capturedContext).showSnackBar(
+          SnackBar(
+            content: const Text('QR code saved (check your gallery)'),
+            backgroundColor: c.green,
+          ),
+        );
+      } catch (e) {
+        if (!capturedContext.mounted) return;
+
+        ScaffoldMessenger.of(capturedContext).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save QR: $e'),
+            backgroundColor: c.red,
+          ),
+        );
       }
     } catch (e) {
       if (capturedContext.mounted) {
