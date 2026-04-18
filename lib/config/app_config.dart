@@ -3,7 +3,7 @@ class Config {
   // ─── API CONFIGURATION ────────────────────────────────────────────────────
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://flameguard.onrender.com',
+    defaultValue: 'https://flameguard.onrender.com/api',
   );
 
   // API timeout settings
@@ -22,6 +22,7 @@ class Config {
 
   // MQTT topics
   static const String mqttBaseTopic = 'flameguard';
+  static String deviceTopic(String deviceId) => '$mqttBaseTopic/$deviceId';
   static const String statusTopic = '$mqttBaseTopic/status';
   static const String commandTopic = '$mqttBaseTopic/commands';
 
@@ -30,8 +31,10 @@ class Config {
   static const Duration deviceHeartbeatTimeout = Duration(minutes: 5);
 
   // ─── SECURITY CONFIGURATION ───────────────────────────────────────────────
-  static const bool enableHttpsOnly = bool.fromEnvironment('HTTPS_ONLY', defaultValue: true);
-  static const bool enableMqttTls = bool.fromEnvironment('MQTT_TLS', defaultValue: false);
+  static const bool enableHttpsOnly =
+    String.fromEnvironment('HTTPS_ONLY') == 'true';
+  static const bool enableMqttTls =
+    String.fromEnvironment('MQTT_TLS') == 'true';
 
   // ─── DEVELOPMENT SETTINGS ─────────────────────────────────────────────────
   static const bool isDevelopment = bool.fromEnvironment('DEV_MODE', defaultValue: false);
@@ -47,17 +50,17 @@ class Config {
   };
 
   // ─── ALERT THRESHOLDS ────────────────────────────────────────────────────
-  static const Map<String, double> alertThresholds = {
-    'temperature_max': 60.0,  // Celsius
-    'smoke_max': 500.0,       // PPM
-    'gas_max': 1000.0,        // PPM
-    'flame_intensity_max': 80.0, // %
+  static const Map<String, double> defaultThresholds = {
+    'temperature_max': 60.0,
+    'smoke_max': 500.0,
+    'gas_max': 1000.0,
+    'flame_intensity_max': 80.0,
   };
 }
 
 // Environment-specific configurations
 class DevConfig extends Config {
-  static const String apiBaseUrl = '  ';
+  static const String apiBaseUrl = 'localhost:3000/api';
   static const String mqttBroker = 'localhost';
   static const bool isDevelopment = true;
 }
