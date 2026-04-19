@@ -32,7 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _loading = false;
   bool _showPass = false;
-  String _err = '';
+  String? _err;
 
   void _submit() {
     if (_email.text.isEmpty || _pass.text.isEmpty) {
@@ -41,7 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     setState(() {
-      _err = '';
+      _err = null;
       _loading = true;
     });
 
@@ -146,7 +146,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _authenticateWithApple() async {
     try {
-      setState(() => _loading = true);
+      setState(() {
+        _loading = true;
+        _err = null;
+      });
 
       final state = context.read<AppState>();
 
@@ -161,27 +164,30 @@ class _LoginScreenState extends State<LoginScreen> {
       final userId = credential.userIdentifier;
 
       if (idToken == null || userId == null) {
-        throw Exception("Apple token missing");
+        throw Exception("Apple Sign-In failed: missing credentials");
       }
 
       final success = await state.loginWithApple(idToken, userId);
 
       if (!mounted) return;
 
-      setState(() => _loading = false);
-
       if (success) {
         widget.onLogin();
       } else {
-        setState(() => _err = 'Apple login failed');
+        setState(() {
+          _err = 'Apple login failed';
+        });
       }
     } catch (e) {
       if (!mounted) return;
 
       setState(() {
-        _loading = false;
         _err = 'Apple login failed: $e';
       });
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -260,7 +266,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 20),
 
-              if (_err.isNotEmpty) ErrorBanner(_err),
+              if (_err != null && _err!.isNotEmpty) ErrorBanner(_err!),
 
               PrimaryButton(
                 label: 'Log In',
@@ -281,7 +287,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
 
               const SizedBox(height: 20),
-
+              // login buttons
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
