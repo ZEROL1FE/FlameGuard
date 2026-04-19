@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../services/api_service.dart';
+import '../services/firestore_service.dart';
 import '../services/esp32_service.dart';
 import 'device_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -66,7 +66,6 @@ class AppState extends ChangeNotifier {
 
   // ─── SERVICE INSTANCES ───────────────────────────────────────────────────
   final Esp32Service _esp32Service = Esp32Service();
-  String? _authToken;
   bool _isAuthenticated = false;
   String? _userId;
   String? _userEmail;
@@ -242,55 +241,49 @@ class AppState extends ChangeNotifier {
   String? get userId => _userId;
   String? get userEmail => _userEmail;
   String? get userName => _userName;
-  String? get authToken => _authToken;
 
+  /// No more JWT tokens — we just check FirebaseAuth.currentUser
   Future<void> loadAuthState() async {
     final prefs = await SharedPreferences.getInstance();
-    _authToken = prefs.getString('authToken');
-    _userId = prefs.getString('userId');
-    _userEmail = prefs.getString('userEmail');
-    _userName = prefs.getString('userName');
-    _isAuthenticated = _authToken != null && _userId != null;
+    _isDark = prefs.getBool('isDark') ?? _isDark;
 
-    if (_isAuthenticated) {
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    if (firebaseUser != null) {
+      _userId = firebaseUser.uid;
+      _userEmail = firebaseUser.email;
+      _userName = prefs.getString('userName') ?? firebaseUser.displayName ?? firebaseUser.email?.split('@')[0] ?? 'User';
+      _isAuthenticated = true;
+
+      // Upsert Firestore user doc
+      try {
+        await FirestoreService.createOrUpdateUser(
+          uid: _userId!,
+          email: _userEmail!,
+          name: _userName!,
+          profilePicture: firebaseUser.photoURL,
+        );
+      } catch (e) {
+        debugPrint('Failed to upsert user doc: $e');
+      }
+
       await connectToEsp32();
       await syncDevicesFromServer();
       _startWebSensorPolling();
     } else {
-      final firebaseUser = FirebaseAuth.instance.currentUser;
-      if (firebaseUser != null) {
-        try {
-          final idToken = await firebaseUser.getIdToken();
-          if (idToken != null) {
-            final response = await ApiService.firebaseLogin(idToken);
-            final token = response['token'] as String;
-            final user = response['user'] as Map<String, dynamic>;
-            await saveAuthState(
-              token,
-              user['id'] as String,
-              user['email'] as String,
-              user['name'] as String,
-            );
-            return;
-          }
-        } catch (e) {
-          debugPrint('Failed to restore Firebase session: $e');
-        }
-      }
+      _isAuthenticated = false;
+      _userId = null;
+      _userEmail = null;
+      _userName = null;
     }
 
     notifyListeners();
   }
 
-  Future<void> saveAuthState(String token, String id, String email, String name) async {
+  Future<void> _saveUserLocally(String uid, String email, String name) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('authToken', token);
-    await prefs.setString('userId', id);
-    await prefs.setString('userEmail', email);
     await prefs.setString('userName', name);
 
-    _authToken = token;
-    _userId = id;
+    _userId = uid;
     _userEmail = email;
     _userName = name;
     _isAuthenticated = true;
@@ -303,24 +296,21 @@ class AppState extends ChangeNotifier {
 
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('authToken');
-    await prefs.remove('userId');
-    await prefs.remove('userEmail');
     await prefs.remove('userName');
 
-    _authToken = null;
     _userId = null;
     _userEmail = null;
     _userName = null;
     _isAuthenticated = false;
 
     await FirebaseAuth.instance.signOut();
+    await GoogleSignIn().signOut();
     _esp32Service.disconnect();
     _webSensorSyncTimer?.cancel();
     notifyListeners();
   }
 
-  // ─── API AUTHENTICATION METHODS ──────────────────────────────────────────
+  // ─── FIREBASE AUTH METHODS ──────────────────────────────────────────────
 
   Future<bool> loginWithGoogle() async {
     try {
@@ -350,26 +340,19 @@ class AppState extends ChangeNotifier {
       }
 
       final user = userCredential.user;
-
       if (user == null) return false;
 
-      // 🔥 IMPORTANT: connect to your backend
-      final idToken = await user.getIdToken();
-
-      if (idToken == null) return false;
-
-      final response = await ApiService.firebaseLogin(idToken);
-
-      final token = response['token'];
-      final userData = response['user'];
-
-      await saveAuthState(
-        token,
-        userData['id'],
-        userData['email'],
-        userData['name'],
+      // Upsert Firestore user doc
+      final name = user.displayName ?? user.email?.split('@')[0] ?? 'User';
+      await FirestoreService.createOrUpdateUser(
+        uid: user.uid,
+        email: user.email!,
+        name: name,
+        profilePicture: user.photoURL,
+        provider: 'google',
       );
 
+      await _saveUserLocally(user.uid, user.email!, name);
       return true;
     } catch (e) {
       log("Google login error: $e");
@@ -382,19 +365,20 @@ class AppState extends ChangeNotifier {
       final credential = FacebookAuthProvider.credential(accessToken);
       final userCredential =
           await FirebaseAuth.instance.signInWithCredential(credential);
-      final idToken = await userCredential.user?.getIdToken();
-      if (idToken == null) return false;
 
-      final response = await ApiService.firebaseLogin(idToken);
-      final token = response['token'] as String;
-      final user = response['user'] as Map<String, dynamic>;
+      final user = userCredential.user;
+      if (user == null) return false;
 
-      await saveAuthState(
-        token,
-        user['id'] as String,
-        user['email'] as String,
-        user['name'] as String,
+      final name = user.displayName ?? user.email?.split('@')[0] ?? 'User';
+      await FirestoreService.createOrUpdateUser(
+        uid: user.uid,
+        email: user.email!,
+        name: name,
+        profilePicture: user.photoURL,
+        provider: 'facebook',
       );
+
+      await _saveUserLocally(user.uid, user.email!, name);
       return true;
     } catch (e) {
       debugPrint('Facebook login failed: $e');
@@ -409,18 +393,25 @@ class AppState extends ChangeNotifier {
         return false;
       }
 
-      final response = await ApiService.appleLogin(identityToken, userIdentifier);
+      final oauthCredential = OAuthProvider('apple.com').credential(
+        idToken: identityToken,
+      );
+      final userCredential =
+          await FirebaseAuth.instance.signInWithCredential(oauthCredential);
 
-      final token = response['token'] as String;
-      final user = response['user'] as Map<String, dynamic>;
+      final user = userCredential.user;
+      if (user == null) return false;
 
-      await saveAuthState(
-        token,
-        user['id'] as String,
-        user['email'] as String,
-        user['name'] as String,
+      final name = user.displayName ?? user.email?.split('@')[0] ?? 'User';
+      await FirestoreService.createOrUpdateUser(
+        uid: user.uid,
+        email: user.email!,
+        name: name,
+        profilePicture: user.photoURL,
+        provider: 'apple',
       );
 
+      await _saveUserLocally(user.uid, user.email!, name);
       return true;
     } catch (e) {
       debugPrint('Apple login failed: $e');
@@ -430,17 +421,25 @@ class AppState extends ChangeNotifier {
 
   Future<bool> loginWithEmail(String email, String password) async {
     try {
-      final response = await ApiService.emailLogin(email, password);
-      final token = response['token'] as String;
-      final user = response['user'] as Map<String, dynamic>;
+      final userCredential = await FirebaseAuth.instance
+          .signInWithEmailAndPassword(email: email.trim(), password: password);
 
-      await saveAuthState(
-        token,
-        user['id'] as String,
-        user['email'] as String,
-        user['name'] as String,
+      final user = userCredential.user;
+      if (user == null) return false;
+
+      final name = user.displayName ?? email.split('@')[0];
+      await FirestoreService.createOrUpdateUser(
+        uid: user.uid,
+        email: user.email!,
+        name: name,
+        provider: 'email',
       );
+
+      await _saveUserLocally(user.uid, user.email!, name);
       return true;
+    } on FirebaseAuthException catch (e) {
+      debugPrint('Email login failed: ${e.code} - ${e.message}');
+      return false;
     } catch (e) {
       debugPrint('Email login failed: $e');
       return false;
@@ -449,19 +448,41 @@ class AppState extends ChangeNotifier {
 
   Future<bool> signupWithEmail(String name, String email, String password) async {
     try {
-      final response = await ApiService.emailSignup(name, email, password);
-      final token = response['token'] as String;
-      final user = response['user'] as Map<String, dynamic>;
+      final userCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(email: email.trim(), password: password);
 
-      await saveAuthState(
-        token,
-        user['id'] as String,
-        user['email'] as String,
-        user['name'] as String,
+      final user = userCredential.user;
+      if (user == null) return false;
+
+      // Update display name in Firebase Auth
+      await user.updateDisplayName(name);
+
+      // Create Firestore user doc
+      await FirestoreService.createOrUpdateUser(
+        uid: user.uid,
+        email: user.email!,
+        name: name,
+        provider: 'email',
       );
+
+      await _saveUserLocally(user.uid, user.email!, name);
       return true;
+    } on FirebaseAuthException catch (e) {
+      debugPrint('Email signup failed: ${e.code} - ${e.message}');
+      return false;
     } catch (e) {
       debugPrint('Email signup failed: $e');
+      return false;
+    }
+  }
+
+  /// Send password reset email via Firebase Auth.
+  Future<bool> sendPasswordResetEmail(String email) async {
+    try {
+      await FirestoreService.sendPasswordResetEmail(email);
+      return true;
+    } catch (e) {
+      debugPrint('Password reset email failed: $e');
       return false;
     }
   }
@@ -482,10 +503,10 @@ class AppState extends ChangeNotifier {
   // ─── DEVICE MANAGEMENT METHODS ───────────────────────────────────────────
 
   Future<void> syncDevicesFromServer() async {
-    if (!_isAuthenticated || _authToken == null) return;
+    if (!_isAuthenticated || _userId == null) return;
 
     try {
-      final serverDevices = await ApiService.getDevices(_authToken!);
+      final serverDevices = await FirestoreService.getDevices(_userId!);
       // Convert server devices to local DeviceModel format
       _devices = serverDevices.map((d) => DeviceModel.fromJson(d)).toList();
       notifyListeners();
@@ -501,21 +522,19 @@ class AppState extends ChangeNotifier {
     required String icon,
     required int wattage,
   }) async {
-    if (!_isAuthenticated || _authToken == null) return false;
+    if (!_isAuthenticated || _userId == null) return false;
 
     try {
-      final generatedDeviceId =
-          'fg-${DateTime.now().millisecondsSinceEpoch}-${name.hashCode.abs()}';
       final deviceData = {
-        'deviceId': generatedDeviceId,
         'name': name,
         'location': zone,
+        'zone': zone,
         'icon': icon,
         'wattage': wattage,
         'type': icon,
       };
 
-      final response = await ApiService.addDevice(_authToken!, deviceData);
+      final response = await FirestoreService.addDevice(_userId!, deviceData);
       final newDevice = DeviceModel.fromJson(response);
 
       _devices = [..._devices, newDevice];
@@ -528,11 +547,11 @@ class AppState extends ChangeNotifier {
   }
 
   Future<bool> updateDeviceOnServer(DeviceModel device) async {
-    if (!_isAuthenticated || _authToken == null) return false;
+    if (!_isAuthenticated || _userId == null) return false;
 
     try {
       final updates = device.toJson();
-      await ApiService.updateDevice(_authToken!, device.deviceId, updates);
+      await FirestoreService.updateDevice(device.deviceId, updates);
 
       final index = _devices.indexWhere((d) => d.id == device.id);
       if (index != -1) {
@@ -547,12 +566,12 @@ class AppState extends ChangeNotifier {
   }
 
   Future<bool> deleteDeviceFromServer(int deviceId) async {
-    if (!_isAuthenticated || _authToken == null) return false;
+    if (!_isAuthenticated || _userId == null) return false;
 
     try {
       final device = getDevice(deviceId);
       if (device == null) return false;
-      await ApiService.deleteDevice(_authToken!, device.deviceId);
+      await FirestoreService.deleteDevice(device.deviceId);
       _devices.removeWhere((d) => d.id == deviceId);
       notifyListeners();
       return true;
@@ -567,22 +586,21 @@ class AppState extends ChangeNotifier {
     required String email,
     required String permission,
   }) async {
-    if (!_isAuthenticated || _authToken == null) return false;
+    if (!_isAuthenticated || _userId == null) return false;
 
     final device = getDevice(deviceId);
     if (device == null) return false;
 
     try {
-      final shared = await ApiService.shareDeviceAccess(
-        _authToken!,
+      final result = await FirestoreService.shareDeviceAccess(
         device.deviceId,
         email,
         permission: permission,
       );
 
-      final sharedUser = SharedUser.fromJson(
-        Map<String, dynamic>.from(shared['shared'] ?? {}),
-      );
+      if (result == null) return false;
+
+      final sharedUser = SharedUser.fromJson(result);
 
       final index = _devices.indexWhere((d) => d.id == deviceId);
       if (index != -1) {
@@ -606,15 +624,12 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> loadSharedAccessForDevice(int deviceId) async {
-    if (!_isAuthenticated || _authToken == null) return;
+    if (!_isAuthenticated || _userId == null) return;
     final device = getDevice(deviceId);
     if (device == null) return;
 
     try {
-      final shared = await ApiService.getSharedAccess(
-        _authToken!,
-        device.deviceId,
-      );
+      final shared = await FirestoreService.getSharedAccess(device.deviceId);
       final mapped = shared
           .map((entry) =>
               SharedUser.fromJson(Map<String, dynamic>.from(entry)))
@@ -634,20 +649,17 @@ class AppState extends ChangeNotifier {
     int limit = 100,
     int sinceHours = 24,
   }) async {
-    if (!_isAuthenticated || _authToken == null) return [];
+    if (!_isAuthenticated || _userId == null) return [];
     final device = getDevice(deviceId);
     if (device == null) return [];
 
     try {
-      final rows = await ApiService.getDeviceHistory(
-        _authToken!,
+      final rows = await FirestoreService.getDeviceHistory(
         device.deviceId,
         limit: limit,
         sinceHours: sinceHours,
       );
-      return rows
-          .map((row) => Map<String, dynamic>.from(row as Map))
-          .toList();
+      return rows;
     } catch (e) {
       debugPrint('Failed to fetch history: $e');
       return [];
@@ -836,13 +848,12 @@ class AppState extends ChangeNotifier {
   }
 
   Future<bool> deleteSharedUser(int deviceId, SharedUser user) async {
-    if (!_isAuthenticated || _authToken == null) return false;
+    if (!_isAuthenticated || _userId == null) return false;
     final device = getDevice(deviceId);
     if (device == null || user.backendId.isEmpty) return false;
 
     try {
-      await ApiService.removeSharedAccess(
-        _authToken!,
+      await FirestoreService.removeSharedAccess(
         device.deviceId,
         user.backendId,
       );

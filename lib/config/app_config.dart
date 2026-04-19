@@ -1,15 +1,6 @@
-// Configuration for API endpoints and MQTT settings
+// Configuration for MQTT settings and device thresholds.
+// API configuration removed — all data goes through Firebase directly.
 class Config {
-  // ─── API CONFIGURATION ────────────────────────────────────────────────────
-  static const String apiBaseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'https://flameguard.onrender.com/api',
-  );
-
-  // API timeout settings
-  static const Duration apiTimeout = Duration(seconds: 30);
-  static const Duration apiConnectTimeout = Duration(seconds: 10);
-
   // ─── MQTT CONFIGURATION ───────────────────────────────────────────────────
   static const String mqttBroker = String.fromEnvironment(
     'MQTT_BROKER',
@@ -31,8 +22,6 @@ class Config {
   static const Duration deviceHeartbeatTimeout = Duration(minutes: 5);
 
   // ─── SECURITY CONFIGURATION ───────────────────────────────────────────────
-  static const bool enableHttpsOnly =
-    String.fromEnvironment('HTTPS_ONLY') == 'true';
   static const bool enableMqttTls =
     String.fromEnvironment('MQTT_TLS') == 'true';
 
@@ -56,22 +45,4 @@ class Config {
     'gas_max': 1000.0,
     'flame_intensity_max': 80.0,
   };
-}
-
-// Environment-specific configurations
-class DevConfig extends Config {
-  static const String apiBaseUrl = 'localhost:3000/api';
-  static const String mqttBroker = 'localhost';
-  static const bool isDevelopment = true;
-}
-
-class StagingConfig extends Config {
-  static const String apiBaseUrl = 'https://flameguard-staging.onrender.com/api';
-  static const String mqttBroker = 'mqtt-staging.yourdomain.com';
-}
-
-class ProdConfig extends Config {
-  static const String apiBaseUrl = 'https://flameguard-api.onrender.com/api';
-  static const String mqttBroker = 'mqtt.yourdomain.com';
-  static const bool enableMqttTls = true;
 }
