@@ -43,7 +43,10 @@ class ApiService {
   }
 
   // Apple Sign In
-  static Future<Map<String, dynamic>> appleLogin(String identityToken, String userIdentifier) async {
+  static Future<Map<String, dynamic>> appleLogin(
+    String identityToken,
+    String userIdentifier,
+  ) async {
     final response = await http.post(
       Uri.parse('$baseUrl/auth/apple-login'),
       headers: _headers,
@@ -54,7 +57,6 @@ class ApiService {
     );
     return _handleResponse(response);
   }
-
   // Email/password login
   static Future<Map<String, dynamic>> emailLogin(String email, String password) async {
     final response = await http.post(

@@ -404,7 +404,13 @@ class AppState extends ChangeNotifier {
 
   Future<bool> loginWithApple(String identityToken, String userIdentifier) async {
     try {
+      if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) {
+        debugPrint('Apple Sign-In only available on iOS');
+        return false;
+      }
+
       final response = await ApiService.appleLogin(identityToken, userIdentifier);
+
       final token = response['token'] as String;
       final user = response['user'] as Map<String, dynamic>;
 
@@ -414,6 +420,7 @@ class AppState extends ChangeNotifier {
         user['email'] as String,
         user['name'] as String,
       );
+
       return true;
     } catch (e) {
       debugPrint('Apple login failed: $e');
